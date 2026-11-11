@@ -291,7 +291,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         <hr style="margin: 30px 0; border: none; border-top: 1px dashed #cbd5e1;" />
         <p style="font-size: 11px; color: #94a3b8; text-align: center;">
-          柳井市 まちなかまちづくり対話支援システム | Googleフォーム＆スプレッドシート全自動クロス集計ダッシュボード
+          あわいDesign | アンケート クロス集計ダッシュボード
         </p>
       </div>
     `;

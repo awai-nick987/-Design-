@@ -385,7 +385,7 @@ export function AnalysisGuideModal({ isOpen, onClose }: AnalysisGuideModalProps)
         {/* Footer */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between rounded-b-2xl">
           <span className="text-xs text-slate-500">
-            山口県柳井市 まちなかまちづくり対話支援システム
+            あわいDesign アンケート クロス集計ダッシュボード
           </span>
           <button
             type="button"

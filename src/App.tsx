@@ -427,15 +427,15 @@ export default function App() {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200/70">
-                    {summary.isYanaiPreset ? "山口県柳井市" : "Googleフォーム連携"}
+                    あわいDesign
                   </span>
                   <span className="hidden md:inline text-[11px] font-medium text-slate-500">
-                    {summary.isYanaiPreset ? "まちなかまちづくり対話支援システム" : "全自動クロス集計＆ファシリテーション分析"}
+                    アンケート クロス集計・対話支援システム
                   </span>
                 </div>
                 <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 tracking-tight leading-tight truncate">
                   {summary.isYanaiPreset
-                    ? "まちなかアンケート クロス集計ダッシュボード"
+                    ? "アンケート クロス集計ダッシュボード"
                     : `${dataSourceName || "Googleフォーム"} クロス集計ダッシュボード`}
                 </h1>
               </div>
