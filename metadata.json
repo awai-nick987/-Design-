@@ -1,0 +1,6 @@
+{
+  "name": "まちなかアンケート クロス集計ダッシュボード",
+  "description": "柳井市まちなかまちづくり・井戸端会議のためのアンケートクロス集計＆ファシリテーション分析ダッシュボード",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
