@@ -24,6 +24,15 @@ export interface ColumnMapping {
   q9: number; // 自由意見
 }
 
+export interface AutoMappingResult {
+  mapping: ColumnMapping;
+  titles: Record<keyof ColumnMapping, string>;
+  confidence: Record<keyof ColumnMapping, number>;
+  reasons: Record<keyof ColumnMapping, string>;
+  autoDetectedCount: number;
+}
+
+
 export type QuestionType = "single" | "multiple" | "text" | "number";
 
 export interface QuestionProfile {
@@ -69,6 +78,7 @@ export interface SurveyAnalysisSummary {
   totalCount: number;
   surveyTitle?: string;
   isYanaiPreset: boolean;
+  questionTitles?: Record<string, string>;
   ageDistribution: AggregatedCount[];
   householdDistribution: AggregatedCount[];
   genderDistribution: AggregatedCount[];
@@ -175,7 +185,10 @@ export interface SurveyDataset {
   headers: string[];
   rawRows: string[][];
   mapping: ColumnMapping;
+  questionTitles?: Record<string, string>;
+  mappingReasons?: Record<string, string>;
   sourceName: string;
+  sourceUrl?: string; // 登録されたGoogleフォーム/スプレッドシートURL（永続化）
   createdAt: number;
   filterJichikai: string;
   filterAge: string;

@@ -88,6 +88,14 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
   const topPride = summary.prideRanking[0];
   const topFacility = summary.facilityRanking[0];
 
+  const titles = summary.questionTitles || {};
+  const q3Title = titles.q3 || "回答者の年代構成（問3）";
+  const q4Title = titles.q4 || "世帯構成の分布（問4）";
+  const q7Title = titles.q7 || (summary.isYanaiPreset ? "まちなかでの不安・困りごと（問7 上位）" : "不安・困りごと・課題（上位）");
+  const q8Title = titles.q8 || (summary.isYanaiPreset ? "あったらいいなと思うもの（問8 上位）" : "あったらいいな・期待（上位）");
+  const q5Title = titles.q5 || (summary.isYanaiPreset ? "柳井の自慢できるもの・誇り（問5）" : "地域の自慢・強み・満足点");
+  const q6Title = titles.q6 || (summary.isYanaiPreset ? "普段よく利用するまちなかの施設（問6）" : "利用施設・行動動線");
+
   return (
     <div id="survey-dashboard-root" className="space-y-6">
       {/* Top Section Header */}
@@ -184,12 +192,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Card 1: Age Distribution (問3) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Users2 className="w-4 h-4 text-blue-600" />
-                回答者の年代構成（問3）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q3Title}>
+                <Users2 className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="truncate">{q3Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">最多: {topAge?.name} ({topAge?.count}名)</span>
+              <span className="text-[11px] text-slate-400 shrink-0">最多: {topAge?.name} ({topAge?.count}名)</span>
             </div>
 
             <div className="h-64 w-full">
@@ -220,12 +228,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
 
           {/* Card 2: Household Distribution (問4) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-600" />
-                世帯構成の分布（問4）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q4Title}>
+                <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="truncate">{q4Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">最多: {topHousehold?.name} ({topHousehold?.count}名)</span>
+              <span className="text-[11px] text-slate-400 shrink-0">最多: {topHousehold?.name} ({topHousehold?.count}名)</span>
             </div>
 
             <div className="h-64 w-full flex items-center justify-center">
@@ -278,12 +286,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Card 3: Worries (問7) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                まちなかでの不安・困りごと（問7 上位）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q7Title}>
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="truncate">{q7Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">複数回答 (最大3つ)</span>
+              <span className="text-[11px] text-slate-400 shrink-0">複数回答 (最大3つ)</span>
             </div>
 
             <div className="h-72 w-full">
@@ -317,12 +325,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
 
           {/* Card 4: Hopes (問8) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-500" />
-                あったらいいなと思うもの（問8 上位）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q8Title}>
+                <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="truncate">{q8Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">複数回答 (最大3つ)</span>
+              <span className="text-[11px] text-slate-400 shrink-0">複数回答 (最大3つ)</span>
             </div>
 
             <div className="h-72 w-full">
@@ -484,12 +492,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Card 5: Pride & Strengths (問5) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <HeartHandshake className="w-4 h-4 text-emerald-600" />
-                柳井の自慢できるもの・誇り（問5）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q5Title}>
+                <HeartHandshake className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="truncate">{q5Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">地域の資源</span>
+              <span className="text-[11px] text-slate-400 shrink-0">地域の資源</span>
             </div>
 
             <div className="h-64 w-full">
@@ -523,12 +531,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ summary }) => 
 
           {/* Card 6: Facilities (問6) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-purple-600" />
-                普段よく利用するまちなかの施設（問6）
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate" title={q6Title}>
+                <Building2 className="w-4 h-4 text-purple-600 shrink-0" />
+                <span className="truncate">{q6Title}</span>
               </h4>
-              <span className="text-[11px] text-slate-400">生活動線</span>
+              <span className="text-[11px] text-slate-400 shrink-0">生活動線</span>
             </div>
 
             <div className="h-64 w-full">

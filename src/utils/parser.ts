@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { ColumnMapping, SurveyRow } from "../types/survey";
+import { AutoMappingResult, ColumnMapping, SurveyRow } from "../types/survey";
 
 // Detect delimiter (tab, comma, semicolon)
 export function detectDelimiter(text: string): string {
@@ -505,48 +505,308 @@ export function splitNumberMappedAnswers(
   return Array.from(new Set(results));
 }
 
-// Guess column index by header text matching
-export function detectColumnMapping(headers: string[]): ColumnMapping {
-  const findIndex = (patterns: (string | RegExp)[]) => {
-    return headers.findIndex((h) => {
-      const lower = h.toLowerCase();
-      return patterns.some((p) => {
-        if (typeof p === "string") return lower.includes(p.toLowerCase());
-        return p.test(h);
-      });
-    });
+// Split answers flexibly: supports both numerical codes (Yanai style) and direct text answers (standard Google Forms)
+export function splitFlexibleAnswers(
+  text: string,
+  choiceMapping?: Record<number, string>
+): string[] {
+  if (!text) return [];
+
+  const trimmed = text.trim();
+  if (!trimmed || ["-", "特になし", "なし", "特になし。"].includes(trimmed)) return [];
+
+  // Delimit by comma, japanese comma, newline, semicolon, slash, or bullet
+  const rawParts = trimmed.split(/[,、\n\r;；/／・\t]+/g);
+  const results: string[] = [];
+
+  for (const part of rawParts) {
+    const p = part.trim();
+    if (!p) continue;
+
+    // Check if multiple numbers are separated by spaces e.g. "1 3 5"
+    if (/^[\d０-９\s　]+$/.test(p)) {
+      const nums = p.split(/[\s　]+/g);
+      for (const n of nums) {
+        if (!n.trim()) continue;
+        if (choiceMapping) {
+          const mapped = parseNumberOrTextOption(n, choiceMapping);
+          if (mapped && mapped !== "-" && mapped !== "特になし") {
+            results.push(mapped);
+            continue;
+          }
+        }
+        const clean = cleanOptionValue(n);
+        if (clean && clean !== "-" && clean !== "特になし") {
+          results.push(clean);
+        }
+      }
+      continue;
+    }
+
+    // Try choiceMapping first (if numbers or numbered prefix e.g. "1. 白壁の町並み")
+    if (choiceMapping) {
+      const mapped = parseNumberOrTextOption(p, choiceMapping);
+      if (mapped && mapped !== "-" && mapped !== "特になし") {
+        results.push(mapped);
+        continue;
+      }
+    }
+
+    // Standard Google Forms text choice
+    const clean = cleanOptionValue(p);
+    if (clean && clean !== "-" && clean !== "特になし") {
+      results.push(clean);
+    }
+  }
+
+  return Array.from(new Set(results));
+}
+
+// Smart auto-detect and bind Google Forms questions to analysis roles
+export function autoDetectAndBindFormQuestions(
+  headers: string[],
+  rows?: string[][]
+): AutoMappingResult {
+  const mapping: ColumnMapping = {
+    q1: -1,
+    q2: -1,
+    q3: -1,
+    q4: -1,
+    q5: -1,
+    q6: -1,
+    q7: -1,
+    q8: -1,
+    q9: -1,
   };
 
-  const q1 = findIndex(["問1", "自治会", "地域", "地区", "町内会", "住所"]);
-  const q2 = findIndex(["問2", "性別", "ジェンダー"]);
-  const q3 = findIndex(["問3", "年齢", "年代", "おいくつ"]);
-  const q4 = findIndex(["問4", "世帯", "家族構成", "世帯構成"]);
-  const q5 = findIndex(["問5", "自慢", "強み", "魅力", "誇り"]);
-  const q6 = findIndex(["問6", "施設", "利用施設", "よく行く場所", "よく利用する施設"]);
-  const q7 = findIndex(["問7", "不安", "困りごと", "課題", "困り", "問題点", "悩み", "不安に感じていること"]);
-  const q8 = findIndex(["問8", "あったらいいな", "期待", "欲しい", "ほしい", "希望", "まちづくり", "あったらいいなと思うもの"]);
-  const q9 = findIndex(["問9", "自由意見", "意見", "ご意見", "自由記述", "感想", "コメント"]);
+  const titles: Record<keyof ColumnMapping, string> = {
+    q1: "自治会・地区・所属",
+    q2: "性別",
+    q3: "年齢・年代",
+    q4: "世帯構成・立場",
+    q5: "地域の自慢・強み・満足点",
+    q6: "利用施設・行動動線",
+    q7: "不安・困りごと・課題",
+    q8: "あったらいいな・期待・要望",
+    q9: "自由意見・感想",
+  };
+
+  const confidence: Record<keyof ColumnMapping, number> = {
+    q1: 0,
+    q2: 0,
+    q3: 0,
+    q4: 0,
+    q5: 0,
+    q6: 0,
+    q7: 0,
+    q8: 0,
+    q9: 0,
+  };
+
+  const reasons: Record<keyof ColumnMapping, string> = {
+    q1: "未検出",
+    q2: "未検出",
+    q3: "未検出",
+    q4: "未検出",
+    q5: "未検出",
+    q6: "未検出",
+    q7: "未検出",
+    q8: "未検出",
+    q9: "未検出",
+  };
+
+  if (!headers || headers.length === 0) {
+    return { mapping, titles, confidence, reasons, autoDetectedCount: 0 };
+  }
+
+  // Define comprehensive semantic patterns for Google Forms
+  const roleRules: {
+    key: keyof ColumnMapping;
+    label: string;
+    keywords: RegExp;
+    dataPatterns?: RegExp;
+    weight: number;
+  }[] = [
+    {
+      key: "q3",
+      label: "年齢・年代",
+      keywords: /年齢|年代|おいくつ|生年|歳|age|学年|誕生/i,
+      dataPatterns: /10代|20代|30代|40代|50代|60代|70代|80代|歳|才/,
+      weight: 10,
+    },
+    {
+      key: "q2",
+      label: "性別",
+      keywords: /性別|ジェンダー|gender/i,
+      dataPatterns: /^男$|^女$|男性|女性|その他|無回答/,
+      weight: 10,
+    },
+    {
+      key: "q1",
+      label: "地区・地域・所属",
+      keywords: /自治会|地区|地域|町内|住所|市|町|エリア|拠点|所属|部署|事業所|居住地/i,
+      weight: 8,
+    },
+    {
+      key: "q4",
+      label: "世帯構成・立場",
+      keywords: /世帯|家族|同居|暮らし|単身|夫婦|子ども|同居|立場|身分|構成/i,
+      dataPatterns: /単身|一人|夫婦|子育て|世帯|親/,
+      weight: 8,
+    },
+    {
+      key: "q7",
+      label: "不安・困りごと・課題",
+      keywords: /不安|困り|課題|不満|問題|悩み|改善|デメリット|心配|不便|ボトルネック|リスク/i,
+      weight: 9,
+    },
+    {
+      key: "q8",
+      label: "あったらいいな・期待・要望",
+      keywords: /あったらいいな|期待|希望|欲しい|ほしい|アイデア|今後|未来|提案|施策|要望|やってみたい/i,
+      weight: 9,
+    },
+    {
+      key: "q5",
+      label: "自慢・強み・魅力・満足",
+      keywords: /自慢|強み|魅力|誇り|好きな|良い|満足|メリット|評価|理由|きっかけ|関心/i,
+      weight: 8,
+    },
+    {
+      key: "q6",
+      label: "利用施設・行動動線",
+      keywords: /施設|利用|行く|場所|どこ|頻度|買い物|交通|店舗|スポット|動線/i,
+      weight: 7,
+    },
+    {
+      key: "q9",
+      label: "自由意見・感想",
+      keywords: /自由|意見|ご意見|感想|その他|コメント|メッセージ|記述|備考|一言|要望等/i,
+      weight: 9,
+    },
+  ];
+
+  const assignedCols = new Set<number>();
+  let detectedCount = 0;
+
+  // Step 1: Match high-confidence keyword and data pattern pairs
+  for (const rule of roleRules) {
+    let bestCol = -1;
+    let highestScore = 0;
+    let bestReason = "";
+
+    headers.forEach((header, colIdx) => {
+      if (assignedCols.has(colIdx)) return;
+      if (/タイムスタンプ|timestamp/i.test(header)) return;
+
+      let score = 0;
+      let matchedReason = "";
+
+      // Check header text match
+      if (rule.keywords.test(header)) {
+        score += rule.weight;
+        matchedReason = `ヘッダー「${header.substring(0, 15)}...」から検出`;
+      }
+
+      // Check question number prefix e.g. "問1", "問3", "Q1", "Q3"
+      const qNumMatch = header.match(/(?:問|Q|q)([1-9])/);
+      if (qNumMatch && `q${qNumMatch[1]}` === rule.key) {
+        score += 15;
+        matchedReason = `設問番号「${qNumMatch[0]}」に完全一致`;
+      }
+
+      // Check sample rows data
+      if (rows && rows.length > 0 && rule.dataPatterns) {
+        const sampleColValues = rows.slice(0, 10).map((r) => r[colIdx] || "");
+        const matchCount = sampleColValues.filter((v) => rule.dataPatterns!.test(v)).length;
+        if (matchCount > 0) {
+          score += matchCount * 2;
+          matchedReason = `${matchedReason ? matchedReason + " + " : ""}回答データ（例: ${sampleColValues[0]}）から検出`;
+        }
+      }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestCol = colIdx;
+        bestReason = matchedReason;
+      }
+    });
+
+    if (bestCol >= 0 && highestScore >= 5) {
+      mapping[rule.key] = bestCol;
+      titles[rule.key] = headers[bestCol] || titles[rule.key];
+      confidence[rule.key] = Math.min(100, highestScore * 10);
+      reasons[rule.key] = bestReason || "自動検出";
+      assignedCols.add(bestCol);
+      detectedCount++;
+    }
+  }
+
+  // Step 2: Intelligent Fallback for remaining unassigned columns
+  // If q9 (Free opinions) not found, look for any column with long text
+  if (mapping.q9 === -1 && rows && rows.length > 0) {
+    headers.forEach((header, colIdx) => {
+      if (assignedCols.has(colIdx)) return;
+      if (/タイムスタンプ|timestamp/i.test(header)) return;
+
+      const values = rows.map((r) => (r[colIdx] || "").trim()).filter(Boolean);
+      if (values.length === 0) return;
+      const avgLen = values.reduce((sum, v) => sum + v.length, 0) / values.length;
+      if (avgLen > 25 && mapping.q9 === -1) {
+        mapping.q9 = colIdx;
+        titles.q9 = header;
+        confidence.q9 = 75;
+        reasons.q9 = `回答の平均文字数（${Math.round(avgLen)}文字）から自由意見と判定`;
+        assignedCols.add(colIdx);
+        detectedCount++;
+      }
+    });
+  }
+
+  // Step 3: For unassigned keys, map to available columns sequentially if non-timestamp
+  const unassignedKeys: (keyof ColumnMapping)[] = [
+    "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8"
+  ];
+  let nextAvailableCol = 0;
+
+  for (const key of unassignedKeys) {
+    if (mapping[key] === -1) {
+      while (
+        nextAvailableCol < headers.length &&
+        (assignedCols.has(nextAvailableCol) || /タイムスタンプ|timestamp/i.test(headers[nextAvailableCol] || ""))
+      ) {
+        nextAvailableCol++;
+      }
+
+      if (nextAvailableCol < headers.length) {
+        mapping[key] = nextAvailableCol;
+        titles[key] = headers[nextAvailableCol] || `(列 ${nextAvailableCol + 1})`;
+        confidence[key] = 50;
+        reasons[key] = `列 ${nextAvailableCol + 1} を順次バインド`;
+        assignedCols.add(nextAvailableCol);
+        detectedCount++;
+        nextAvailableCol++;
+      }
+    }
+  }
 
   return {
-    q1: q1 >= 0 ? q1 : 1,
-    q2: q2 >= 0 ? q2 : 2,
-    q3: q3 >= 0 ? q3 : 3,
-    q4: q4 >= 0 ? q4 : 4,
-    q5: q5 >= 0 ? q5 : 5,
-    q6: q6 >= 0 ? q6 : 6,
-    q7: q7 >= 0 ? q7 : 7,
-    q8: q8 >= 0 ? q8 : 8,
-    q9: q9 >= 0 ? q9 : (headers.length > 9 ? 9 : -1),
+    mapping,
+    titles,
+    confidence,
+    reasons,
+    autoDetectedCount: detectedCount,
   };
+}
+
+// Backward-compatible detectColumnMapping
+export function detectColumnMapping(headers: string[], rows?: string[][]): ColumnMapping {
+  return autoDetectAndBindFormQuestions(headers, rows).mapping;
 }
 
 // Split multiple answers (general fallback)
 export function splitMultiAnswers(text: string): string[] {
-  if (!text) return [];
-  return text
-    .split(/[,、\n\r;]+/g)
-    .map((s) => cleanOptionValue(s))
-    .filter((s) => s.length > 0 && s !== "-" && s !== "特になし");
+  return splitFlexibleAnswers(text);
 }
 
 // Normalize Survey Rows with mapping, converting Q5/7/8 numbers to text & splitting Q6 facilities
@@ -561,7 +821,8 @@ export function buildSurveyRows(
       rawObj[h || `Col_${colIdx + 1}`] = r[colIdx] || "";
     });
 
-    const getCol = (colIdx: number) => (colIdx >= 0 && colIdx < r.length ? (r[colIdx] || "").trim() : "");
+    const getCol = (colIdx: number) =>
+      colIdx >= 0 && colIdx < r.length ? (r[colIdx] || "").trim() : "";
 
     return {
       id: `row-${idx + 1}`,
@@ -570,11 +831,13 @@ export function buildSurveyRows(
       q2_gender: cleanOptionValue(getCol(mapping.q2)) || "回答なし",
       q3_age: cleanOptionValue(getCol(mapping.q3)) || "不明",
       q4_household: cleanOptionValue(getCol(mapping.q4)) || "未回答",
-      q5_pride: splitNumberMappedAnswers(getCol(mapping.q5), Q5_PRIDE_CHOICES),
-      q6_facilities: splitFacilityAnswers(getCol(mapping.q6)),
-      q7_worry: splitNumberMappedAnswers(getCol(mapping.q7), Q7_WORRY_CHOICES),
-      q8_hope: splitNumberMappedAnswers(getCol(mapping.q8), Q8_HOPE_CHOICES),
+      // Flexible answers: supports numerical dictionary matching AND direct text matching
+      q5_pride: splitFlexibleAnswers(getCol(mapping.q5), Q5_PRIDE_CHOICES),
+      q6_facilities: splitFlexibleAnswers(getCol(mapping.q6)),
+      q7_worry: splitFlexibleAnswers(getCol(mapping.q7), Q7_WORRY_CHOICES),
+      q8_hope: splitFlexibleAnswers(getCol(mapping.q8), Q8_HOPE_CHOICES),
       q9_opinion: getCol(mapping.q9),
     };
   });
 }
+

@@ -16,16 +16,24 @@ import { parseExcelBuffer, parseRawText } from "../utils/parser";
 import { SAMPLE_TSV_DATA } from "../utils/sampleData";
 import { normalizeSheetUrls, parseGoogleSheetHtml } from "../utils/sheetResolver";
 
+interface SavedUrlItem {
+  url: string;
+  title: string;
+  date: number;
+}
+
 interface DataImporterProps {
   onDataLoaded: (
     headers: string[],
     rows: string[][],
     sourceName: string,
-    asNewTab?: boolean
+    asNewTab?: boolean,
+    sourceUrl?: string
   ) => void;
   onClose?: () => void;
   isModal?: boolean;
   activeDatasetName?: string;
+  initialUrl?: string;
 }
 
 export const DataImporter: React.FC<DataImporterProps> = ({
@@ -33,9 +41,10 @@ export const DataImporter: React.FC<DataImporterProps> = ({
   onClose,
   isModal = false,
   activeDatasetName,
+  initialUrl = "",
 }) => {
   const [activeTab, setActiveTab] = useState<"sheet" | "file" | "paste" | "sample">("sheet");
-  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetUrl, setSheetUrl] = useState(initialUrl);
   const [pasteContent, setPasteContent] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [asNewTab, setAsNewTab] = useState(true);
@@ -43,6 +52,35 @@ export const DataImporter: React.FC<DataImporterProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Load saved URLs from localStorage
+  const [savedUrls, setSavedUrls] = useState<SavedUrlItem[]>(() => {
+    try {
+      const stored = localStorage.getItem("survey_dashboard_saved_urls");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync initialUrl if prop changes
+  React.useEffect(() => {
+    if (initialUrl && !sheetUrl) {
+      setSheetUrl(initialUrl);
+    }
+  }, [initialUrl]);
+
+  // Save URL to history helper
+  const saveUrlToHistory = (url: string, title: string) => {
+    try {
+      const filtered = savedUrls.filter((item) => item.url !== url);
+      const updated = [{ url, title, date: Date.now() }, ...filtered].slice(0, 8);
+      setSavedUrls(updated);
+      localStorage.setItem("survey_dashboard_saved_urls", JSON.stringify(updated));
+    } catch {
+      // ignore localStorage quota errors
+    }
+  };
 
   // Clear notifications
   const clearNotice = () => {
@@ -122,8 +160,9 @@ export const DataImporter: React.FC<DataImporterProps> = ({
       }
 
       const finalTitle = detectedTitle || "Googleフォーム連携データ";
+      saveUrlToHistory(sheetUrl.trim(), finalTitle);
       setSuccessMessage(`「${finalTitle}」から ${rows.length} 件の回答データを正常に読み込みました。`);
-      onDataLoaded(headers, rows, finalTitle, asNewTab);
+      onDataLoaded(headers, rows, finalTitle, asNewTab, sheetUrl.trim());
     } catch (err: any) {
       setErrorMessage(err?.message || "Googleスプレッドシートの取得に失敗しました。");
     } finally {
@@ -353,6 +392,36 @@ export const DataImporter: React.FC<DataImporterProps> = ({
                 />
                 <Link2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
+
+              {/* Saved / Registered URLs History Badges */}
+              {savedUrls.length > 0 && (
+                <div className="mt-2.5 p-2.5 bg-blue-50/50 border border-blue-200/60 rounded-lg space-y-1.5">
+                  <span className="text-[11px] font-bold text-blue-900 block">
+                    登録済みURL履歴（クリックで即時セット）:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {savedUrls.map((item, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setSheetUrl(item.url);
+                          if (!customTitle) setCustomTitle(item.title);
+                        }}
+                        className={`text-left px-2.5 py-1 rounded text-xs transition border flex items-center gap-1.5 ${
+                          sheetUrl === item.url
+                            ? "bg-blue-600 text-white font-bold border-blue-600"
+                            : "bg-white text-slate-700 hover:bg-blue-100/70 border-slate-200"
+                        }`}
+                        title={item.url}
+                      >
+                        <FileSpreadsheet className="w-3 h-3 shrink-0 text-blue-500" />
+                        <span className="truncate max-w-[200px]">{item.title || item.url}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Google Forms Connection Help Box */}

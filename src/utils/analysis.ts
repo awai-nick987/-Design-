@@ -111,7 +111,8 @@ export function splitDynamicCellValues(text: string): string[] {
 export function analyzeSurveyData(
   rows: SurveyRow[],
   headers: string[] = [],
-  surveyTitle?: string
+  surveyTitle?: string,
+  questionTitles?: Record<string, string>
 ): SurveyAnalysisSummary {
   const total = rows.length;
 
@@ -263,6 +264,7 @@ export function analyzeSurveyData(
     totalCount: total,
     surveyTitle,
     isYanaiPreset,
+    questionTitles,
     ageDistribution,
     householdDistribution,
     genderDistribution,

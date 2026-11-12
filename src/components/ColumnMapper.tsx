@@ -1,5 +1,5 @@
 import React from "react";
-import { SlidersHorizontal, Check, AlertCircle } from "lucide-react";
+import { SlidersHorizontal, Check, AlertCircle, Sparkles, RefreshCw, CheckCircle2 } from "lucide-react";
 import { ColumnMapping } from "../types/survey";
 
 interface ColumnMapperProps {
@@ -8,18 +8,21 @@ interface ColumnMapperProps {
   onMappingChange: (newMapping: ColumnMapping) => void;
   isOpen: boolean;
   onToggle: () => void;
+  questionTitles?: Record<string, string>;
+  mappingReasons?: Record<string, string>;
+  onAutoReset?: () => void;
 }
 
-const QUESTION_LABELS: { key: keyof ColumnMapping; label: string; desc: string }[] = [
-  { key: "q1", label: "自治会・地区・所属", desc: "地区・拠点・所属組織など（単一属性）" },
-  { key: "q2", label: "性別", desc: "回答者の性別区分" },
-  { key: "q3", label: "年齢・年代", desc: "年代・世代区分（クロス集計の主軸）" },
-  { key: "q4", label: "世帯構成・立場", desc: "世帯構成・職業・家族状況など" },
-  { key: "q5", label: "地域の自慢・強み・満足点", desc: "魅力・誇り・強み（複数回答または単一）" },
-  { key: "q6", label: "利用施設・行動", desc: "普段よく行く場所・利用動線" },
-  { key: "q7", label: "不安・困りごと・課題", desc: "日常の悩み・課題・改善してほしい点" },
-  { key: "q8", label: "あったらいいな・期待・要望", desc: "将来への期待・欲しい施設やサービス" },
-  { key: "q9", label: "自由意見・自由記述", desc: "自由なご意見・感想・生の声" },
+const QUESTION_ROLES: { key: keyof ColumnMapping; label: string; desc: string; defaultHeaderPattern: string }[] = [
+  { key: "q1", label: "自治会・地区・所属 (問1相当)", desc: "地区・拠点・所属組織（単一属性）", defaultHeaderPattern: "地区・自治会" },
+  { key: "q2", label: "性別 (問2相当)", desc: "回答者の性別区分", defaultHeaderPattern: "性別" },
+  { key: "q3", label: "年齢・年代 (問3相当)", desc: "年代・世代区分（クロス集計の主軸）", defaultHeaderPattern: "年代・年齢" },
+  { key: "q4", label: "世帯構成・立場 (問4相当)", desc: "世帯構成・家族状況・同居など", defaultHeaderPattern: "世帯・家族" },
+  { key: "q5", label: "自慢・強み・満足点 (問5相当)", desc: "地域の魅力・誇り・強み・満足理由", defaultHeaderPattern: "自慢・魅力・強み" },
+  { key: "q6", label: "利用施設・行動動線 (問6相当)", desc: "普段よく行く場所・利用施設・買い物動線", defaultHeaderPattern: "利用施設・行動" },
+  { key: "q7", label: "不安・困りごと・課題 (問7相当)", desc: "日常の悩み・課題・改善してほしい点", defaultHeaderPattern: "不安・困りごと・課題" },
+  { key: "q8", label: "あったらいいな・期待 (問8相当)", desc: "将来への期待・欲しい施設やサービス", defaultHeaderPattern: "あったらいいな・期待" },
+  { key: "q9", label: "自由意見・生の声 (問9相当)", desc: "自由なご意見・感想・長文メッセージ", defaultHeaderPattern: "自由記述・意見" },
 ];
 
 export const ColumnMapper: React.FC<ColumnMapperProps> = ({
@@ -28,6 +31,9 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   onMappingChange,
   isOpen,
   onToggle,
+  questionTitles,
+  mappingReasons,
+  onAutoReset,
 }) => {
   const handleChange = (key: keyof ColumnMapping, index: number) => {
     onMappingChange({
@@ -36,78 +42,141 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
     });
   };
 
+  const mappedCount = (Object.values(mapping) as number[]).filter(
+    (v) => typeof v === "number" && v >= 0 && v < headers.length
+  ).length;
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs mb-6 overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs mb-6 overflow-hidden">
+      {/* Clickable Header Bar */}
       <div
         onClick={onToggle}
-        className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-slate-100/60 transition"
+        className="px-4 py-3 bg-gradient-to-r from-slate-50 via-blue-50/30 to-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 cursor-pointer hover:bg-slate-100/60 transition"
       >
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-blue-600" />
-          <span className="text-xs font-semibold text-slate-800">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-emerald-600" />
+          </div>
+          <span className="text-xs font-bold text-slate-800">
             アンケート設問と分析項目の対応付け設定
           </span>
-          <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-medium">
-            全Googleフォーム自動対応
+          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full font-bold">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+            Googleフォーム全自動対応（{mappedCount}項目自動設定済み・入力不要）
           </span>
         </div>
-        <span className="text-xs text-blue-600 font-medium hover:underline">
-          {isOpen ? "設定を閉じる" : "列の割り当てを変更・確認"}
-        </span>
+
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-slate-500 hidden sm:inline">
+            設問の手動入力なしでダッシュボードに反映中
+          </span>
+          <span className="text-blue-600 font-bold hover:underline">
+            {isOpen ? "設定詳細を閉じる" : "自動設定内容を確認・調整"}
+          </span>
+        </div>
       </div>
 
+      {/* Expanded Details */}
       {isOpen && (
-        <div className="p-4 sm:p-5 bg-white space-y-4 text-xs">
-          <p className="text-slate-500">
-            取り込んだGoogleフォームのヘッダー名から自動で各分析役割を判別しています。必要に応じてプルダウンから手動で変更できます。また、「基本集計グラフ」タブの「全設問グラフ一覧」では、対応付けに関わらず全設問の分布が表示されます。
-          </p>
-
-          <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-lg text-xs space-y-1.5 text-blue-900">
-            <div className="flex items-center gap-1.5 font-semibold text-blue-800">
-              <span>✨ 自動データクレンジング & 全設問自動グラフ生成機能が有効です</span>
+        <div className="p-4 sm:p-5 bg-white space-y-4 text-xs animate-fadeIn">
+          {/* Status Alert Banner */}
+          <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1.5 text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900 text-sm">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Googleフォームの設問内容・回答データを全自動解析して設定しています</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-emerald-800">
+                設問文をユーザーが手動入力する必要はありません。ヘッダーの設問文と回答パターンから最適な分析項目を自動バインドし、ダッシュボードのグラフ・ピボット・サマリーに100%反映しています。
+              </p>
             </div>
-            <p className="text-[11px] leading-relaxed text-blue-800/90">
-              ・<span className="font-semibold">自由な設問に対応:</span> どんなアンケートであっても、スプレッドシートやCSVの各列から自動で選択肢を抽出し、単一選択・複数選択・自由記述を適切に分類してグラフ化します。
-            </p>
-            <p className="text-[11px] leading-relaxed text-blue-800/90">
-              ・<span className="font-semibold">柳井市アンケートの互換性:</span> 従来の柳井市まちなかアンケート形式（番号による選択肢や施設名の表記揺れ）も自動判別して最適化されます。
-            </p>
+
+            {onAutoReset && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAutoReset();
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs"
+                title="Googleフォームから自動再解析してリセット"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-700" />
+                <span>自動再解析・リセット</span>
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {QUESTION_LABELS.map((item) => {
+          {/* Cards for each question role */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {QUESTION_ROLES.map((item) => {
               const currentVal = mapping[item.key];
               const isMapped = currentVal >= 0 && currentVal < headers.length;
+              const mappedHeader = isMapped ? headers[currentVal] : null;
+              const reason = mappingReasons ? mappingReasons[item.key] : null;
 
               return (
                 <div
                   key={item.key}
-                  className="p-3 bg-slate-50/50 rounded-lg border border-slate-200/80 flex flex-col justify-between space-y-2"
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5 transition ${
+                    isMapped
+                      ? "bg-white border-slate-200 shadow-2xs"
+                      : "bg-slate-50 border-slate-200 opacity-70"
+                  }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">{item.label}</span>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="font-bold text-slate-800 text-xs">{item.label}</span>
                       {isMapped ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          自動設定済
+                        </span>
                       ) : (
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+                          <AlertCircle className="w-3 h-3 text-amber-600" />
+                          未割り当て
+                        </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                    <p className="text-[11px] text-slate-500">{item.desc}</p>
+
+                    {/* Detected Google Forms Header Preview */}
+                    {isMapped && mappedHeader && (
+                      <div className="mt-2 p-2 bg-blue-50/50 rounded-lg border border-blue-100 text-[11px] space-y-0.5">
+                        <span className="text-[10px] font-bold text-blue-900 block">
+                          検出されたフォーム設問:
+                        </span>
+                        <p className="text-slate-800 font-semibold line-clamp-2" title={mappedHeader}>
+                          {mappedHeader}
+                        </p>
+                        {reason && (
+                          <span className="text-[10px] text-blue-700/80 block mt-0.5">
+                            💡 {reason}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <select
-                    value={currentVal}
-                    onChange={(e) => handleChange(item.key, parseInt(e.target.value, 10))}
-                    className="w-full mt-1 px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
-                  >
-                    <option value={-1}>-- 割り当てなし --</option>
-                    {headers.map((header, idx) => (
-                      <option key={idx} value={idx}>
-                        列 {idx + 1}: {header || `(列 ${idx + 1})`}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Manual Override Dropdown */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">
+                      列の手動変更（通常は変更不要）:
+                    </label>
+                    <select
+                      value={currentVal}
+                      onChange={(e) => handleChange(item.key, parseInt(e.target.value, 10))}
+                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                    >
+                      <option value={-1}>-- 割り当てなし --</option>
+                      {headers.map((header, idx) => (
+                        <option key={idx} value={idx}>
+                          列 {idx + 1}: {header || `(列 ${idx + 1})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               );
             })}

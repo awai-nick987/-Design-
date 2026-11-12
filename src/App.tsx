@@ -41,7 +41,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ColumnMapping, SurveyRow, SurveyDataset } from "./types/survey";
-import { parseRawText, detectColumnMapping, buildSurveyRows } from "./utils/parser";
+import { parseRawText, autoDetectAndBindFormQuestions, buildSurveyRows } from "./utils/parser";
 import { SAMPLE_TSV_DATA } from "./utils/sampleData";
 import {
   analyzeSurveyData,
@@ -60,18 +60,35 @@ import { ExportModal } from "./components/ExportModal";
 
 type TabType = "home" | "correlations" | "pivot" | "charts" | "all";
 
+const STORAGE_KEY = "awai_design_survey_datasets_v2";
+const ACTIVE_ID_KEY = "awai_design_active_dataset_id_v2";
+
 export default function App() {
-  // Initial sample dataset
+  // Load persisted datasets from localStorage or initialize with default sample
   const [datasets, setDatasets] = useState<SurveyDataset[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: SurveyDataset[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load datasets from localStorage:", e);
+    }
+
     const { headers: initialHeaders, rows: initialRows } = parseRawText(SAMPLE_TSV_DATA);
-    const detected = detectColumnMapping(initialHeaders);
+    const autoResult = autoDetectAndBindFormQuestions(initialHeaders, initialRows);
     return [
       {
         id: "dataset-default-yanai",
         name: "柳井市まちなかアンケート（実証サンプル）",
         headers: initialHeaders,
         rawRows: initialRows,
-        mapping: detected,
+        mapping: autoResult.mapping,
+        questionTitles: autoResult.titles,
+        mappingReasons: autoResult.reasons,
         sourceName: "柳井市まちなかアンケート実証データ (サンプル)",
         createdAt: Date.now(),
         filterJichikai: "all",
@@ -82,7 +99,14 @@ export default function App() {
     ];
   });
 
-  const [activeDatasetId, setActiveDatasetId] = useState<string>("dataset-default-yanai");
+  const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
+    try {
+      const savedId = localStorage.getItem(ACTIVE_ID_KEY);
+      if (savedId) return savedId;
+    } catch {}
+    return "dataset-default-yanai";
+  });
+
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTabName, setEditingTabName] = useState<string>("");
 
@@ -94,9 +118,23 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Syncing state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
   // Active View Tab (Default: home)
   const [activeViewTab, setActiveViewTab] = useState<TabType>("home");
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Automatically persist datasets and active tab to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets));
+      localStorage.setItem(ACTIVE_ID_KEY, activeDatasetId);
+    } catch (e) {
+      console.warn("Failed to persist datasets to localStorage:", e);
+    }
+  }, [datasets, activeDatasetId]);
 
   // Active dataset reference
   const activeDataset = useMemo(() => {
@@ -120,14 +158,58 @@ export default function App() {
     );
   };
 
+  // Re-run automatic detection for current dataset
+  const handleAutoResetMapping = () => {
+    const autoResult = autoDetectAndBindFormQuestions(headers, rawRows);
+    updateActiveDataset({
+      mapping: autoResult.mapping,
+      questionTitles: autoResult.titles,
+      mappingReasons: autoResult.reasons,
+    });
+  };
+
+  // Sync / Refresh current dataset from its saved Google Sheet / Forms URL
+  const handleSyncCurrentUrl = async () => {
+    if (!activeDataset.sourceUrl) return;
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(activeDataset.sourceUrl)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `通信エラー: ${res.status}`);
+      }
+      const text = await res.text();
+      const { headers: freshHeaders, rows: freshRows } = parseRawText(text);
+      if (freshRows.length === 0) throw new Error("回答データが見つかりませんでした。");
+
+      const autoResult = autoDetectAndBindFormQuestions(freshHeaders, freshRows);
+      updateActiveDataset({
+        headers: freshHeaders,
+        rawRows: freshRows,
+        mapping: autoResult.mapping,
+        questionTitles: autoResult.titles,
+        mappingReasons: autoResult.reasons,
+      });
+      setSyncMessage(`最新データに更新完了 (${freshRows.length}件)`);
+      setTimeout(() => setSyncMessage(null), 3500);
+    } catch (err: any) {
+      alert(`最新データの取得に失敗しました: ${err?.message || "不明なエラー"}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // When data is imported via Google Sheets, Excel upload, or paste
   const handleDataLoaded = (
     newHeaders: string[],
     newRows: string[][],
     sourceName: string,
-    asNewTab: boolean = true
+    asNewTab: boolean = true,
+    sourceUrl?: string
   ) => {
-    const detected = detectColumnMapping(newHeaders);
+    // 100% Automatic Google Forms question detection and binding
+    const autoResult = autoDetectAndBindFormQuestions(newHeaders, newRows);
     const newId = `dataset-${Date.now()}`;
 
     if (asNewTab) {
@@ -136,8 +218,11 @@ export default function App() {
         name: sourceName || "新規アンケートデータ",
         headers: newHeaders,
         rawRows: newRows,
-        mapping: detected,
+        mapping: autoResult.mapping,
+        questionTitles: autoResult.titles,
+        mappingReasons: autoResult.reasons,
         sourceName: sourceName,
+        sourceUrl: sourceUrl,
         createdAt: Date.now(),
         filterJichikai: "all",
         filterAge: "all",
@@ -151,8 +236,11 @@ export default function App() {
         name: sourceName || activeDataset.name,
         headers: newHeaders,
         rawRows: newRows,
-        mapping: detected,
+        mapping: autoResult.mapping,
+        questionTitles: autoResult.titles,
+        mappingReasons: autoResult.reasons,
         sourceName: sourceName,
+        sourceUrl: sourceUrl || activeDataset.sourceUrl,
         filterJichikai: "all",
         filterAge: "all",
         filterHousehold: "all",
@@ -197,21 +285,21 @@ export default function App() {
 
   const handleDeleteDataset = (id: string) => {
     if (datasets.length <= 1) {
-      if (confirm("現在表示中のデータを初期サンプルに戻しますか？")) {
         const { headers: initialHeaders, rows: initialRows } = parseRawText(SAMPLE_TSV_DATA);
-        const detected = detectColumnMapping(initialHeaders);
+        const auto = autoDetectAndBindFormQuestions(initialHeaders, initialRows);
         updateActiveDataset({
           name: "柳井市まちなかアンケート（実証サンプル）",
           headers: initialHeaders,
           rawRows: initialRows,
-          mapping: detected,
+          mapping: auto.mapping,
+          questionTitles: auto.titles,
+          mappingReasons: auto.reasons,
           sourceName: "柳井市まちなかアンケート実証データ (サンプル)",
           filterJichikai: "all",
           filterAge: "all",
           filterHousehold: "all",
           aiMarkdown: null,
         });
-      }
       return;
     }
 
@@ -240,8 +328,13 @@ export default function App() {
 
   // Analyze dataset with dynamic headers support
   const summary = useMemo(() => {
-    return analyzeSurveyData(filteredSurveyRows, headers, dataSourceName);
-  }, [filteredSurveyRows, headers, dataSourceName]);
+    return analyzeSurveyData(
+      filteredSurveyRows,
+      headers,
+      dataSourceName,
+      activeDataset.questionTitles
+    );
+  }, [filteredSurveyRows, headers, dataSourceName, activeDataset.questionTitles]);
 
   // Analyze individual respondent correlations (Q5 x Q7 x Q8)
   const correlations = useMemo(() => {
@@ -854,6 +947,33 @@ export default function App() {
             <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-md font-medium border border-slate-200 truncate max-w-[200px] sm:max-w-none">
               {dataSourceName || "データなし"}
             </span>
+
+            {/* Persistent Registered URL display & Sync Refresh Button */}
+            {activeDataset.sourceUrl && (
+              <div className="inline-flex items-center gap-1.5 bg-blue-50/70 border border-blue-200/80 rounded-md px-2 py-0.5 text-[11px]">
+                <Link2 className="w-3 h-3 text-blue-600" />
+                <span className="text-blue-900 font-medium truncate max-w-[140px] sm:max-w-[200px]" title={activeDataset.sourceUrl}>
+                  {activeDataset.sourceUrl}
+                </span>
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={handleSyncCurrentUrl}
+                  className="inline-flex items-center gap-1 font-bold text-blue-700 hover:text-blue-900 hover:underline ml-1 pl-1 border-l border-blue-300 disabled:opacity-50"
+                  title="登録済みURLから最新の回答データを再取得"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? "animate-spin text-blue-600" : ""}`} />
+                  <span>{isSyncing ? "同期中..." : "最新データに更新"}</span>
+                </button>
+              </div>
+            )}
+
+            {syncMessage && (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 animate-fadeIn">
+                ✓ {syncMessage}
+              </span>
+            )}
+
             <button
               id="btn-inline-open-importer"
               type="button"
@@ -927,13 +1047,14 @@ export default function App() {
         {isImporterOpen && (
           <div className="relative animate-fadeIn">
             <DataImporter
-              onDataLoaded={(h, r, s, asNew) => {
-                handleDataLoaded(h, r, s, asNew);
+              onDataLoaded={(h, r, s, asNew, url) => {
+                handleDataLoaded(h, r, s, asNew, url);
                 setIsImporterOpen(false);
               }}
               onClose={() => setIsImporterOpen(false)}
               isModal={false}
               activeDatasetName={activeDataset.name}
+              initialUrl={activeDataset.sourceUrl || ""}
             />
           </div>
         )}
@@ -946,6 +1067,9 @@ export default function App() {
             onMappingChange={(newMapping) => updateActiveDataset({ mapping: newMapping })}
             isOpen={isMapperOpen}
             onToggle={() => setIsMapperOpen(!isMapperOpen)}
+            questionTitles={activeDataset.questionTitles}
+            mappingReasons={activeDataset.mappingReasons}
+            onAutoReset={handleAutoResetMapping}
           />
         )}
 
