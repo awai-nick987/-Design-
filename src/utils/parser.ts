@@ -562,6 +562,120 @@ export function splitFlexibleAnswers(
   return Array.from(new Set(results));
 }
 
+// Automatically extract and recognize choice texts for every question column and role
+export function extractQuestionChoices(
+  headers: string[],
+  rows?: string[][],
+  mapping?: ColumnMapping
+): {
+  byCol: Record<number, string[]>;
+  byKey: Record<keyof ColumnMapping, string[]>;
+} {
+  const byCol: Record<number, string[]> = {};
+  const byKey: Record<keyof ColumnMapping, string[]> = {
+    q1: [],
+    q2: [],
+    q3: [],
+    q4: [],
+    q5: [],
+    q6: [],
+    q7: [],
+    q8: [],
+    q9: [],
+  };
+
+  if (!headers || headers.length === 0) {
+    return { byCol, byKey };
+  }
+
+  headers.forEach((header, colIdx) => {
+    if (/タイムスタンプ|timestamp/i.test(header)) return;
+
+    const counts: Record<string, number> = {};
+
+    // 1. Try extracting options embedded in the question header e.g. "利用頻度（毎日・週1回・月1回）" or "[選択肢1, 選択肢2]"
+    const parenMatch = header.match(/[（(\[]([^\)）\]]+)[)）\]]/);
+    if (parenMatch && parenMatch[1]) {
+      const inside = parenMatch[1].trim();
+      if (
+        inside.includes("・") ||
+        inside.includes("、") ||
+        inside.includes(",") ||
+        inside.includes("/") ||
+        inside.includes(";")
+      ) {
+        const parts = inside.split(/[・、,/;\t|]+/g);
+        for (const p of parts) {
+          const clean = cleanOptionValue(p);
+          if (
+            clean &&
+            clean.length > 0 &&
+            clean.length < 35 &&
+            !["例", "必須", "任意", "複数回答可", "最大3つ", "3つまで", "単一回答"].includes(clean)
+          ) {
+            counts[clean] = 0;
+          }
+        }
+      }
+    }
+
+    // 2. Extract choices from data rows
+    if (rows && rows.length > 0) {
+      const nonEmpties = rows.map((r) => (r[colIdx] || "").trim()).filter(Boolean);
+
+      // Check if values are purely numerical codes e.g. "1 3 5" or "1"
+      const isNumericCodes =
+        nonEmpties.length > 0 && nonEmpties.every((v) => /^[\d０-９\s,、\t]+$/.test(v));
+
+      // Preset choice dictionary if applicable
+      let choiceDict: Record<number, string> | undefined;
+      if (mapping) {
+        if (colIdx === mapping.q5) choiceDict = Q5_PRIDE_CHOICES;
+        else if (colIdx === mapping.q7) choiceDict = Q7_WORRY_CHOICES;
+        else if (colIdx === mapping.q8) choiceDict = Q8_HOPE_CHOICES;
+      }
+
+      for (const val of nonEmpties) {
+        let items: string[] = [];
+        if (isNumericCodes || val.includes(",") || val.includes("、") || val.includes("\n") || val.includes(";")) {
+          items = splitFlexibleAnswers(val, choiceDict);
+        } else {
+          const cleaned = cleanOptionValue(val);
+          if (cleaned && !["-", "特になし", "なし", "特になし。"].includes(cleaned)) {
+            items = [cleaned];
+          }
+        }
+
+        for (const item of items) {
+          if (!item || item.length > 60) continue; // skip long free-text answers
+          counts[item] = (counts[item] || 0) + 1;
+        }
+      }
+    }
+
+    // Sort options by frequency descending
+    const sortedChoices = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([opt]) => opt)
+      .filter((opt) => opt.length > 0);
+
+    byCol[colIdx] = sortedChoices;
+  });
+
+  // Assign to roles q1..q9
+  if (mapping) {
+    const keys: (keyof ColumnMapping)[] = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9"];
+    for (const k of keys) {
+      const col = mapping[k];
+      if (col >= 0 && byCol[col]) {
+        byKey[k] = byCol[col];
+      }
+    }
+  }
+
+  return { byCol, byKey };
+}
+
 // Smart auto-detect and bind Google Forms questions to analysis roles
 export function autoDetectAndBindFormQuestions(
   headers: string[],
@@ -615,8 +729,20 @@ export function autoDetectAndBindFormQuestions(
     q9: "未検出",
   };
 
+  const choices: Record<keyof ColumnMapping, string[]> = {
+    q1: [],
+    q2: [],
+    q3: [],
+    q4: [],
+    q5: [],
+    q6: [],
+    q7: [],
+    q8: [],
+    q9: [],
+  };
+
   if (!headers || headers.length === 0) {
-    return { mapping, titles, confidence, reasons, autoDetectedCount: 0 };
+    return { mapping, titles, confidence, reasons, choices, autoDetectedCount: 0 };
   }
 
   // Define comprehensive semantic patterns for Google Forms
@@ -790,11 +916,14 @@ export function autoDetectAndBindFormQuestions(
     }
   }
 
+  const { byKey } = extractQuestionChoices(headers, rows, mapping);
+
   return {
     mapping,
     titles,
     confidence,
     reasons,
+    choices: byKey,
     autoDetectedCount: detectedCount,
   };
 }

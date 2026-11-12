@@ -164,6 +164,7 @@ export default function App() {
     updateActiveDataset({
       mapping: autoResult.mapping,
       questionTitles: autoResult.titles,
+      questionChoices: autoResult.choices,
       mappingReasons: autoResult.reasons,
     });
   };
@@ -189,6 +190,7 @@ export default function App() {
         rawRows: freshRows,
         mapping: autoResult.mapping,
         questionTitles: autoResult.titles,
+        questionChoices: autoResult.choices,
         mappingReasons: autoResult.reasons,
       });
       setSyncMessage(`最新データに更新完了 (${freshRows.length}件)`);
@@ -220,6 +222,7 @@ export default function App() {
         rawRows: newRows,
         mapping: autoResult.mapping,
         questionTitles: autoResult.titles,
+        questionChoices: autoResult.choices,
         mappingReasons: autoResult.reasons,
         sourceName: sourceName,
         sourceUrl: sourceUrl,
@@ -238,6 +241,7 @@ export default function App() {
         rawRows: newRows,
         mapping: autoResult.mapping,
         questionTitles: autoResult.titles,
+        questionChoices: autoResult.choices,
         mappingReasons: autoResult.reasons,
         sourceName: sourceName,
         sourceUrl: sourceUrl || activeDataset.sourceUrl,
@@ -293,6 +297,7 @@ export default function App() {
           rawRows: initialRows,
           mapping: auto.mapping,
           questionTitles: auto.titles,
+          questionChoices: auto.choices,
           mappingReasons: auto.reasons,
           sourceName: "柳井市まちなかアンケート実証データ (サンプル)",
           filterJichikai: "all",
@@ -332,9 +337,10 @@ export default function App() {
       filteredSurveyRows,
       headers,
       dataSourceName,
-      activeDataset.questionTitles
+      activeDataset.questionTitles,
+      activeDataset.questionChoices
     );
-  }, [filteredSurveyRows, headers, dataSourceName, activeDataset.questionTitles]);
+  }, [filteredSurveyRows, headers, dataSourceName, activeDataset.questionTitles, activeDataset.questionChoices]);
 
   // Analyze individual respondent correlations (Q5 x Q7 x Q8)
   const correlations = useMemo(() => {
@@ -1068,6 +1074,7 @@ export default function App() {
             isOpen={isMapperOpen}
             onToggle={() => setIsMapperOpen(!isMapperOpen)}
             questionTitles={activeDataset.questionTitles}
+            questionChoices={activeDataset.questionChoices}
             mappingReasons={activeDataset.mappingReasons}
             onAutoReset={handleAutoResetMapping}
           />

@@ -112,7 +112,8 @@ export function analyzeSurveyData(
   rows: SurveyRow[],
   headers: string[] = [],
   surveyTitle?: string,
-  questionTitles?: Record<string, string>
+  questionTitles?: Record<string, string>,
+  questionChoices?: Record<string, string[]>
 ): SurveyAnalysisSummary {
   const total = rows.length;
 
@@ -265,6 +266,7 @@ export function analyzeSurveyData(
     surveyTitle,
     isYanaiPreset,
     questionTitles,
+    questionChoices,
     ageDistribution,
     householdDistribution,
     genderDistribution,

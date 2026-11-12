@@ -206,14 +206,16 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                 {/* Highlight Card: Strengths */}
                 <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                      問5: まちの誇り・強み
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded truncate max-w-[200px]" title={summary.questionTitles?.q5}>
+                      {summary.questionTitles?.q5 ? `${summary.questionTitles.q5.substring(0, 16)}...` : "問5: まちの誇り・強み"}
                     </span>
-                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                    <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
                   </div>
                   <p className="text-base font-bold text-slate-900">{topPride}</p>
                   <p className="text-xs text-slate-500">
-                    白壁の町並み・金魚ちょうちん・瀬戸内の食など、歴史的資産と景観への愛着が圧倒的多数を獲得。
+                    {summary.isYanaiPreset
+                      ? "白壁の町並み・金魚ちょうちん・瀬戸内の食など、歴史的資産と景観への愛着が圧倒的多数を獲得。"
+                      : `「${summary.prideRanking.slice(0, 3).map((p) => p.name).join("」「")}」などが上位回答として選ばれています。`}
                   </p>
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
                     <span>上位得票率:</span>
@@ -224,14 +226,16 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                 {/* Highlight Card: Worries */}
                 <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
-                      問7: 共通の課題・不安
+                    <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded truncate max-w-[200px]" title={summary.questionTitles?.q7}>
+                      {summary.questionTitles?.q7 ? `${summary.questionTitles.q7.substring(0, 16)}...` : "問7: 共通の課題・不安"}
                     </span>
-                    <TrendingUp className="w-4 h-4 text-rose-500" />
+                    <TrendingUp className="w-4 h-4 text-rose-500 shrink-0" />
                   </div>
                   <p className="text-base font-bold text-slate-900">{topWorry}</p>
                   <p className="text-xs text-slate-500">
-                    商店街のシャッター化や空き家増加に加え、世代ごとに異なる切実な不便さや不安が顕在化。
+                    {summary.isYanaiPreset
+                      ? "商店街のシャッター化や空き家増加に加え、世代ごとに異なる切実な不便さや不安が顕在化。"
+                      : `「${summary.worryRanking.slice(0, 3).map((w) => w.name).join("」「")}」などの課題への懸念が顕在化しています。`}
                   </p>
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
                     <span>最多困りごと率:</span>
@@ -242,14 +246,16 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                 {/* Highlight Card: Hopes */}
                 <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                      問8: あったらいいな（期待）
+                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded truncate max-w-[200px]" title={summary.questionTitles?.q8}>
+                      {summary.questionTitles?.q8 ? `${summary.questionTitles.q8.substring(0, 16)}...` : "問8: あったらいいな（期待）"}
                     </span>
-                    <Lightbulb className="w-4 h-4 text-blue-500" />
+                    <Lightbulb className="w-4 h-4 text-blue-500 shrink-0" />
                   </div>
                   <p className="text-base font-bold text-slate-900">{topHope}</p>
                   <p className="text-xs text-slate-500">
-                    ただの商業施設ではなく、マルシェや多世代が気軽におしゃべり・滞在できる温かい場所を希望。
+                    {summary.isYanaiPreset
+                      ? "ただの商業施設ではなく、マルシェや多世代が気軽におしゃべり・滞在できる温かい場所を希望。"
+                      : `「${summary.hopeRanking.slice(0, 3).map((h) => h.name).join("」「")}」などの前向きな改善が期待されています。`}
                   </p>
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
                     <span>最多期待率:</span>
@@ -383,7 +389,11 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                 )}
 
                 <p className="text-xs text-slate-600 italic">
-                  抱えている課題は世代ごとに違っても、「この柳井のまちなかを、ずっと温かく活気ある場所にしたい」という根底の想いはひとつです。
+                  {summary.isYanaiPreset ? (
+                    <>抱えている課題は世代ごとに違っても、「この柳井のまちなかを、ずっと温かく活気ある場所にしたい」という根底の想いはひとつです。</>
+                  ) : (
+                    <>抱えている課題や日常の関心は世代・立場ごとに異なっていても、「より良い環境や心地よい場をつくりたい」という前向きな願いは共通しています。</>
+                  )}
                 </p>
               </div>
             </section>
@@ -410,21 +420,27 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[11px] font-bold rounded">
-                        【問い1】自慢 (問5) × 課題 (問7)
+                        【問い1】{summary.questionTitles?.q5 || "強み・誇り"} × {summary.questionTitles?.q7 || "課題・不安"}
                       </span>
                       <Compass className="w-4 h-4 text-blue-600" />
                     </div>
                     <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                      「誇るべき『{topPride}』の空間や文化を活かして、増えつつある『{topWorry}』を人が集まる温かい拠点に変えるには？」
+                      {summary.isYanaiPreset
+                        ? `「誇るべき『${topPride}』の空間や文化を活かして、増えつつある『${topWorry}』を人が集まる温かい拠点に変えるには？」`
+                        : `「強みとして支持された『${topPride}』を活かして、住民が課題と感じている『${topWorry}』を安心できる場や新しい価値に変えるには？」`}
                     </h4>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      <strong>問いの背景:</strong> 空き家や課題を放置せず、柳井の歴史と情緒ある空間を住民の手でDIYや小商いの場として活かす発想を広げます。
+                      <strong>問いの背景:</strong> {summary.isYanaiPreset
+                        ? "空き家や課題を放置せず、柳井の歴史と情緒ある空間を住民の手でDIYや小商いの場として活かす発想を広げます。"
+                        : "強みと課題を対立させず、すでにある強み・資源を活用して課題を包み込むアプローチを話し合います。"}
                     </p>
                   </div>
 
                   <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 border border-slate-100">
                     <span className="font-semibold text-slate-900 block mb-1">対話のヒント:</span>
-                    「空き古民家で週末だけの金魚ちょうちん工房や絵本カフェを開くとしたら？」
+                    {summary.isYanaiPreset
+                      ? "「空き古民家で週末だけの金魚ちょうちん工房や絵本カフェを開くとしたら？」"
+                      : "「すでにある資源や拠点に、課題を解消する小さな機能を組み合わせるとしたら？」"}
                   </div>
                 </div>
 
@@ -433,21 +449,27 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded">
-                        【問い2】課題 (問7) × 期待 (問8)
+                        【問い2】{summary.questionTitles?.q7 || "課題・不安"} × {summary.questionTitles?.q8 || "期待・要望"}
                       </span>
                       <Lightbulb className="w-4 h-4 text-emerald-600" />
                     </div>
                     <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                      「『若者の流出や商店の寂しさ』を打ち破るために、私たちが求める『{topHope}』やマルシェでどんな楽しい週末がつくれるか？」
+                      {summary.isYanaiPreset
+                        ? `「『若者の流出や商店の寂しさ』を打ち破るために、私たちが求める『${topHope}』やマルシェでどんな楽しい週末がつくれるか？」`
+                        : `「『${topWorry}』といった困りごとを解消しながら、みんなが望む『${topHope}』をカタチにするために、私たちが始められる一歩は何でしょうか？」`}
                     </h4>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      <strong>問いの背景:</strong> 困りごとの裏返しである「あったらいいな」を住民自身が仕掛ける小さなフェスやマルシェ、夜市へとつなげます。
+                      <strong>問いの背景:</strong> {summary.isYanaiPreset
+                        ? "困りごとの裏返しである「あったらいいな」を住民自身が仕掛ける小さなフェスやマルシェ、夜市へとつなげます。"
+                        : "課題の裏返しである期待を具体化し、住民主体の小さな工夫や助け合いで始められる最初のアクションを引き出します。"}
                     </p>
                   </div>
 
                   <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 border border-slate-100">
                     <span className="font-semibold text-slate-900 block mb-1">対話のヒント:</span>
-                    「甘露醤油を使ったグルメ屋台や、高校生・若者が1日店長になるチャレンジ店！」
+                    {summary.isYanaiPreset
+                      ? "「甘露醤油を使ったグルメ屋台や、高校生・若者が1日店長になるチャレンジ店！」"
+                      : "「大きな仕組みづくりだけでなく、まずは身近な仲間と小さく試せる実践アイデアを探しましょう。」"}
                   </div>
                 </div>
 
@@ -456,21 +478,25 @@ export const FacilitatorInsightView: React.FC<FacilitatorInsightViewProps> = ({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[11px] font-bold rounded">
-                        【問い3】若者・子育て × シニアの掛け合わせ
+                        【問い3】多様な世代・立場の協働
                       </span>
                       <Users className="w-4 h-4 text-amber-600" />
                     </div>
                     <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                      「子育て世代が求める『子どもの居場所』と、シニアが求める『移動やふれあいの安心』。この2つが同時に叶う“まちなかの縁側”とは？」
+                      {summary.isYanaiPreset
+                        ? "「子育て世代が求める『子どもの居場所』と、シニアが求める『移動やふれあいの安心』。この2つが同時に叶う“まちなかの縁側”とは？」"
+                        : `「現役層が望む『${summary.youngTopHope?.name || "活動・交流の場"}』と、シニア層が願う『${summary.seniorTopHope?.name || "安心・集いの場"}』。この双方が心地よく共存する風景とは？」`}
                     </h4>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      <strong>問いの背景:</strong> 世代ギャップを対立ではなく「支え合い」に昇華。シニアの知恵・見守りと、子どもの元気・若者の行動力を融合させます。
+                      <strong>問いの背景:</strong> 世代ギャップを対立ではなく「支え合い」に昇華。お互いの知恵と元気を融合させます。
                     </p>
                   </div>
 
                   <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 border border-slate-100">
                     <span className="font-semibold text-slate-900 block mb-1">対話のヒント:</span>
-                    「シニアが昔遊びを教えたり見守りをする駄菓子屋風カフェ、送迎ついでに立ち寄れる広場」
+                    {summary.isYanaiPreset
+                      ? "「シニアが昔遊びを教えたり見守りをする駄菓子屋風カフェ、送迎ついでに立ち寄れる広場」"
+                      : "「多世代が無理なく混ざり合い、お互いに居心地の良さを感じられる工夫を話し合いましょう。」"}
                   </div>
                 </div>
               </div>

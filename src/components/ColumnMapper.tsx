@@ -32,6 +32,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   isOpen,
   onToggle,
   questionTitles,
+  questionChoices,
   mappingReasons,
   onAutoReset,
 }) => {
@@ -155,6 +156,31 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                             💡 {reason}
                           </span>
                         )}
+                      </div>
+                    )}
+
+                    {/* Detected Choices Preview */}
+                    {isMapped && questionChoices && questionChoices[item.key] && questionChoices[item.key].length > 0 && (
+                      <div className="mt-2 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100 text-[11px] space-y-1">
+                        <span className="text-[10px] font-bold text-emerald-900 flex items-center justify-between">
+                          <span>✨ 認識された選択肢 ({questionChoices[item.key].length}件):</span>
+                        </span>
+                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pt-0.5 no-scrollbar">
+                          {questionChoices[item.key].slice(0, 6).map((opt, oIdx) => (
+                            <span
+                              key={oIdx}
+                              className="inline-block px-1.5 py-0.5 rounded bg-white text-emerald-900 border border-emerald-200/80 text-[10px] font-medium truncate max-w-[150px]"
+                              title={opt}
+                            >
+                              {opt}
+                            </span>
+                          ))}
+                          {questionChoices[item.key].length > 6 && (
+                            <span className="text-[10px] text-emerald-700 font-bold self-center">
+                              +{questionChoices[item.key].length - 6}件
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

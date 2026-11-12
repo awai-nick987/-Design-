@@ -29,6 +29,7 @@ export interface AutoMappingResult {
   titles: Record<keyof ColumnMapping, string>;
   confidence: Record<keyof ColumnMapping, number>;
   reasons: Record<keyof ColumnMapping, string>;
+  choices: Record<keyof ColumnMapping, string[]>;
   autoDetectedCount: number;
 }
 
@@ -79,6 +80,7 @@ export interface SurveyAnalysisSummary {
   surveyTitle?: string;
   isYanaiPreset: boolean;
   questionTitles?: Record<string, string>;
+  questionChoices?: Record<string, string[]>;
   ageDistribution: AggregatedCount[];
   householdDistribution: AggregatedCount[];
   genderDistribution: AggregatedCount[];
@@ -186,6 +188,7 @@ export interface SurveyDataset {
   rawRows: string[][];
   mapping: ColumnMapping;
   questionTitles?: Record<string, string>;
+  questionChoices?: Record<string, string[]>;
   mappingReasons?: Record<string, string>;
   sourceName: string;
   sourceUrl?: string; // 登録されたGoogleフォーム/スプレッドシートURL（永続化）
